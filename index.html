@@ -6,7 +6,12 @@
 <meta name="theme-color" content="#4f46e5">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg">
-<link rel="apple-touch-icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mon Budget">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="format-detection" content="telephone=no">
 <title>Mon Budget</title>
 <style>
 :root{
@@ -26,7 +31,7 @@
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{margin:0;overflow-x:hidden;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:110px}
-button,input,select{font:inherit;color:inherit}
+button,input,select{font:inherit;color:inherit;touch-action:manipulation}
 .wrap{max-width:760px;margin:0 auto;padding:0 16px}
 header{background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;padding:calc(env(safe-area-inset-top) + 16px) 0 74px;border-radius:0 0 32px 32px}
 .top{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -261,10 +266,21 @@ html{-webkit-text-size-adjust:100%;overscroll-behavior-y:none}
     <h2 style="margin:0">Sauvegarde</h2>
     <div class="hint">Vos données sont stockées sur cet appareil. Exportez un fichier pour les transférer entre votre PC et votre mobile.</div>
     <button class="btn" id="btnCats">🏷️ Gérer les catégories</button>
-    <button class="btn p" id="btnExport">⬇️ Exporter mes données</button>
-    <button class="btn" id="btnImport">⬆️ Importer un fichier</button>
-    <input type="file" id="file" accept=".json,application/json" hidden>
+    <button class="btn p" id="btnExport">⬇️ Exporter (choisir le dossier)</button>
+    <button class="btn" id="btnShare" hidden>📤 Partager (OneDrive, Drive…)</button>
+    <button class="btn" id="btnImport">⬆️ Importer (choisir un fichier)</button>
+    <div class="hint" id="bkHint"></div>
+    <input type="file" id="file" accept=".json,.txt,application/json,text/plain" hidden>
     <button class="btn" id="btnClose">Fermer</button>
+  </div>
+</dialog>
+
+<dialog id="dlgImp">
+  <div class="menu">
+    <h2 style="margin:0">Importer cette sauvegarde ?</h2>
+    <div class="hint" id="impInfo"></div>
+    <button class="btn p" id="impOk">Remplacer mes données</button>
+    <button class="btn" id="impNo">Annuler</button>
   </div>
 </dialog>
 
@@ -551,6 +567,9 @@ function drawChart(){
   $("chBody").innerHTML=h;
 }
 
+// Safari iOS ne gère pas <input type="month"> : saisie texte AAAA-MM
+{const t=document.createElement("input");t.type="month";
+ if(t.type!=="month")document.querySelectorAll('input[type=month]').forEach(i=>{i.placeholder="AAAA-MM";i.pattern="\\d{4}-(0[1-9]|1[0-2])";i.inputMode="numeric";i.maxLength=7})}
 // thème
 function applyTheme(t){if(t)document.documentElement.dataset.theme=t}
 try{applyTheme(localStorage.getItem("monbudget.theme"))}catch(e){}
@@ -562,24 +581,74 @@ $("btnTheme").onclick=()=>{
 // sauvegarde
 $("btnMenu").onclick=()=>$("dlgMenu").showModal();
 $("btnClose").onclick=()=>$("dlgMenu").close();
-$("btnExport").onclick=()=>{
+const fname=()=>"mon-budget-"+new Date().toISOString().slice(0,10)+".json";
+const FT=[{description:"Sauvegarde Mon Budget",accept:{"application/json":[".json"],"text/plain":[".txt"]}}];
+const dump=()=>JSON.stringify(S,null,2);
+const aborted=e=>e&&(e.name==="AbortError");
+function download(){
   const a=document.createElement("a");
-  a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,2)],{type:"application/json"}));
-  a.download="mon-budget-"+new Date().toISOString().slice(0,10)+".json";a.click();
+  a.href=URL.createObjectURL(new Blob([dump()],{type:"application/json"}));
+  a.download=fname();a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+const canPick=!!(window.showSaveFilePicker&&window.showOpenFilePicker);
+// Chrome Android refuse de partager un .json : on retombe sur un fichier texte
+const shareFile=()=>{
+  const cands=[new File([dump()],fname(),{type:"application/json"}),new File([dump()],fname().replace(".json",".txt"),{type:"text/plain"})];
+  try{if(navigator.canShare)return cands.find(f=>navigator.canShare({files:[f]}))||null}catch(e){}
+  return null;
 };
-$("btnImport").onclick=()=>$("file").click();
-$("file").onchange=async e=>{
-  const file=e.target.files[0];if(!file)return;
+let canShare=!!shareFile();
+$("btnShare").hidden=!canShare;
+const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+$("bkHint").textContent=isIOS&&canShare
+  ?"Sur iPhone : touchez « Partager », puis « Enregistrer dans Fichiers » et choisissez iCloud Drive. Pour importer, choisissez le fichier dans iCloud Drive."
+  :canPick
+  ?"Une fenêtre vous laisse choisir le dossier (par exemple OneDrive). Le dernier dossier utilisé est retenu."
+  :canShare
+    ?"Sur ce téléphone, « Partager » permet d'envoyer la sauvegarde vers OneDrive. « Exporter » la place dans Téléchargements."
+    :"Le fichier est enregistré dans le dossier Téléchargements de votre navigateur.";
+$("btnExport").onclick=async()=>{
+  if(canPick){
+    try{
+      const h=await showSaveFilePicker({suggestedName:fname(),types:FT,id:"monbudget",startIn:"documents"});
+      const w=await h.createWritable();await w.write(dump());await w.close();
+      toast("Sauvegarde enregistrée ✓");
+    }catch(e){if(!aborted(e)){download();toast("Dossier non accessible ("+(e.name||"erreur")+") : fichier téléchargé")}}
+  }else{download();toast("Fichier téléchargé ✓")}
+};
+$("btnShare").onclick=async()=>{
+  const f=shareFile();
+  if(!f){toast("Partage non disponible sur cet appareil");return}
+  try{await navigator.share({files:[f],title:"Sauvegarde Mon Budget"})}
+  catch(e){if(!aborted(e))toast("Partage impossible : "+(e.name||e))}
+};
+let pending=null;
+function askImport(text){
   try{
-    const d=JSON.parse(await file.text());
+    const d=JSON.parse(text);
     if(!Array.isArray(d.rec)||!Array.isArray(d.one))throw 0;
-    if(!confirm("Remplacer les données actuelles par ce fichier ?"))return;
-    S={rec:d.rec,one:d.one,chk:d.chk||{},ovr:d.ovr||{},cats:Array.isArray(d.cats)&&d.cats.length?d.cats:DEFAULT_CATS.map(c=>({...c}))};if(!S.cats.some(c=>c.id==="autre"))S.cats.push({...DEFAULT_CATS[10]});save();render();$("dlgMenu").close();toast("Import réussi ✓");
-  }catch(err){alert("Fichier invalide.")}
-  e.target.value="";
+    pending=d;
+    $("impInfo").textContent=d.rec.length+" ligne(s) fixe(s), "+d.one.length+" ponctuelle(s), "+(Array.isArray(d.cats)?d.cats.length:0)+" catégorie(s). Vos données actuelles seront remplacées.";
+    $("dlgImp").showModal();
+  }catch(err){toast("Fichier invalide")}
+}
+$("btnImport").onclick=async()=>{
+  if(canPick){
+    try{
+      const [h]=await showOpenFilePicker({types:FT,id:"monbudget",startIn:"documents"});
+      askImport(await (await h.getFile()).text());
+    }catch(e){if(!aborted(e))$("file").click()}
+  }else $("file").click();
 };
-
+$("file").onchange=async e=>{const f=e.target.files[0];if(f)askImport(await f.text());e.target.value=""};
+$("impNo").onclick=()=>{pending=null;$("dlgImp").close()};
+$("impOk").onclick=()=>{
+  const d=pending;if(!d)return;pending=null;
+  S={rec:d.rec,one:d.one,chk:d.chk||{},ovr:d.ovr||{},cats:Array.isArray(d.cats)&&d.cats.length?d.cats:DEFAULT_CATS.map(c=>({...c}))};
+  if(!S.cats.some(c=>c.id==="autre"))S.cats.push({...DEFAULT_CATS[10]});
+  save();render();$("dlgImp").close();$("dlgMenu").close();toast("Import réussi ✓");
+};
 let tt;function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("show"),1800)}
 
 // premier lancement : exemple
