@@ -144,6 +144,15 @@ html{-webkit-text-size-adjust:100%;overscroll-behavior-y:none}
 .col{flex:1;min-width:46px;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;font-size:11px;color:var(--muted)}
 .col i{display:block;width:100%;border-radius:8px 8px 0 0;min-height:3px}
 .col .ic{font-size:20px}
+.emrow{display:flex;gap:8px}
+.emrow input{flex:1;min-width:0;font-size:20px}
+.emcur{flex:none;width:50px;border:1.5px solid var(--line);background:var(--bg);border-radius:12px;font-size:24px;cursor:pointer}
+.emtabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:6px}
+.emtabs button{flex:none;border:0;background:var(--line);border-radius:10px;padding:6px 10px;font-size:18px;cursor:pointer}
+.emtabs button.on{background:var(--brand)}
+.emgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(40px,1fr));gap:4px;max-height:176px;overflow-y:auto}
+.emgrid button{border:0;background:var(--card);border-radius:10px;font-size:22px;padding:6px 0;cursor:pointer}
+.emgrid button:active{transform:scale(.9)}
 @media (min-width:700px){.cards{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}.cards .span{grid-column:1/-1}}
 </style>
 </head>
@@ -265,9 +274,10 @@ html{-webkit-text-size-adjust:100%;overscroll-behavior-y:none}
     <div class="catlist" id="catList"></div>
     <form id="catForm" hidden style="padding:12px;background:var(--bg);border-radius:16px">
       <div class="g2">
-        <label class="f"><span>Icône (emoji)</span><input name="icon" maxlength="4" required></label>
+        <div class="f"><span>Icône (emoji)</span><div class="emrow"><button type="button" class="emcur" id="emBtn" aria-label="Choisir un emoji">🏷️</button><input name="icon" maxlength="8" required aria-label="Emoji"></div></div>
         <label class="f"><span>Couleur</span><input name="color" type="color"></label>
       </div>
+      <div id="emPicker" hidden><div class="emtabs" id="emTabs"></div><div class="emgrid" id="emGrid"></div></div>
       <label class="f"><span>Nom</span><input name="name" required maxlength="30"></label>
       <div class="actions">
         <button type="button" class="btn d" id="catDel">🗑</button>
@@ -456,6 +466,7 @@ function resetCatDel(){clearTimeout(delTimer2);$("catDel").textContent="🗑";$(
 function openCatForm(id){
   editCat=id||null;const c=id?S.cats.find(x=>x.id===id):{icon:"🏷️",name:"",color:"#6366f1"};
   cf.hidden=false;cf.icon.value=c.icon;cf.name.value=c.name;cf.color.value=c.color;
+  $("emBtn").textContent=c.icon;$("emPicker").hidden=true;
   $("catDel").hidden=!id||id==="autre";resetCatDel();cf.scrollIntoView({block:"nearest"});cf.name.focus();
 }
 $("btnCats").onclick=()=>{$("dlgMenu").close();cf.hidden=true;renderCats();cdlg.showModal()};
@@ -477,6 +488,26 @@ $("catDel").onclick=()=>{
   [...S.rec,...S.one].forEach(x=>{if(x.cat===editCat)x.cat="autre"});
   save();cf.hidden=true;renderCats();render();toast("Catégorie supprimée (lignes → Autre)");
 };
+
+// bibliothèque d'emoji
+const EMOJIS=[
+["🏠","Maison","🏠 🏡 🛋️ 🛏️ 🚿 🛁 🧹 🧺 🔑 🪑 💡 🔌 🚰 🔥 🪴 🛠️ 🔧 📦 🚪 🧯"],
+["🚗","Transport","🚗 🚕 🚌 🚆 🚇 ✈️ 🚲 🛵 🏍️ ⛽ 🅿️ 🛞 🚢 🚚 🧳 🛣️ 🚦 🔋"],
+["🛒","Courses","🛒 🍞 🥖 🍎 🥗 🍕 🍔 🍝 ☕ 🍷 🍺 🛍️ 🥩 🐟 🧀 🍫 🥛 🍳 🍽️ 🥦"],
+["⚕️","Santé","⚕️ 💊 🩺 🦷 👓 🏥 💉 🧴 💇 🧘 🏋️ ❤️ 🩹 🧠 🏃 🚑 🧼"],
+["💶","Argent","💶 💰 💳 🏦 💼 🧾 📈 📉 🪙 🎁 💸 🧮 🏷️ 🏧 📊 💵 🤝 🔒"],
+["🎮","Loisirs","🎮 🎬 🎵 📚 🎨 ⚽ 🎟️ 🎭 🏖️ 🎲 📱 💻 📺 🎧 📷 🏕️ ⛷️ 🎸 🌐 🎯"],
+["👪","Famille","👶 🧒 🎓 🏫 🧸 🎂 👪 🐶 🐱 🐾 🎒 ✏️ 💍 🎄 🎉 🛡️ 📞 ✉️ ⛪ 🕯️"]
+].map(([icon,name,list])=>({icon,name,list:list.split(" ")}));
+let emG=0;
+function drawEmoji(){
+  $("emTabs").innerHTML=EMOJIS.map((g,i)=>`<button type="button" data-g="${i}" class="${i===emG?"on":""}" title="${g.name}">${g.icon}</button>`).join("");
+  $("emGrid").innerHTML=EMOJIS[emG].list.map(e=>`<button type="button" data-e="${e}">${e}</button>`).join("");
+}
+$("emBtn").onclick=()=>{const pk=$("emPicker");pk.hidden=!pk.hidden;if(!pk.hidden)drawEmoji()};
+$("emTabs").onclick=e=>{const b=e.target.closest("button");if(b){emG=+b.dataset.g;drawEmoji()}};
+$("emGrid").onclick=e=>{const b=e.target.closest("button");if(!b)return;cf.icon.value=b.dataset.e;$("emBtn").textContent=b.dataset.e;$("emPicker").hidden=true};
+cf.icon.addEventListener("input",()=>{$("emBtn").textContent=cf.icon.value||"🏷️"});
 
 // ---------- graphiques ----------
 let chKind="out",chType="donut";
