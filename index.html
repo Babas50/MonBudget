@@ -111,6 +111,39 @@ html{-webkit-text-size-adjust:100%;overscroll-behavior-y:none}
   form{padding:16px}
   .seg label{padding:10px 4px;font-size:14px}
 }
+[hidden]{display:none!important}
+.real{border-radius:18px;padding:14px 16px;margin-bottom:10px}
+.real.in{background:var(--in-bg)}.real.out{background:var(--out-bg)}
+.real small,.todo small{display:block;color:var(--muted);font-weight:600;text-transform:uppercase;font-size:12px;letter-spacing:.6px}
+.rbig{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.2}
+.real.in .rbig{color:var(--in)}.real.out .rbig{color:var(--out)}
+.rsub{font-size:12px;color:var(--muted)}
+.todo{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:10px;border:1.5px dashed var(--out);border-radius:18px;padding:12px 16px;margin-bottom:16px}
+.tbig{font-size:26px;font-weight:800;color:var(--out);font-variant-numeric:tabular-nums;line-height:1.2}
+.tr{text-align:right}.tr b{color:var(--in);font-size:17px;font-variant-numeric:tabular-nums}
+.clickable{cursor:pointer}
+.clickable:active{transform:scale(.99)}
+.panel h3{display:flex;justify-content:space-between;gap:8px}
+.panel h3 em{white-space:nowrap;font-style:normal;color:var(--brand);text-transform:none;letter-spacing:0;font-size:13px}
+.seg button{flex:1;border:0;background:transparent;padding:9px 4px;border-radius:10px;font-weight:600;color:var(--muted);cursor:pointer;font-size:13px}
+.seg button.on{background:var(--card);color:var(--brand);box-shadow:0 2px 8px rgba(0,0,0,.1)}
+#chType{flex-wrap:wrap}
+.x{background:var(--line);color:var(--ink)}
+.f input[type=color]{height:46px;padding:4px}
+.catlist{display:grid;gap:6px;max-height:42vh;overflow-y:auto}
+.catrow{display:flex;align-items:center;gap:10px;border:0;background:var(--bg);border-radius:12px;padding:10px 12px;cursor:pointer;text-align:left}
+.dot{width:12px;height:12px;border-radius:4px;flex:none;display:inline-block}
+.ci{font-size:20px}.cn{flex:1;font-weight:600}
+.lg{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}
+.lg .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lg .p{color:var(--muted);font-size:12px;width:42px;text-align:right}
+.lg b{font-variant-numeric:tabular-nums}
+.hb{margin:10px 0}.hb .t{display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px;gap:8px}
+.hb .tr2{height:14px;background:var(--line);border-radius:99px;overflow:hidden}.hb .tr2 i{display:block;height:100%;border-radius:99px}
+.cols{display:flex;align-items:flex-end;gap:10px;height:200px;overflow-x:auto;padding-top:6px}
+.col{flex:1;min-width:46px;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:4px;font-size:11px;color:var(--muted)}
+.col i{display:block;width:100%;border-radius:8px 8px 0 0;min-height:3px}
+.col .ic{font-size:20px}
 @media (min-width:700px){.cards{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)}.cards .span{grid-column:1/-1}}
 </style>
 </head>
@@ -142,18 +175,20 @@ html{-webkit-text-size-adjust:100%;overscroll-behavior-y:none}
     </div>
     <div class="panel">
       <h3>Pointage</h3>
+      <div class="real in" id="realBox"><small>Solde réel pointé</small><div class="rbig" id="cDiff">0 €</div><div class="rsub">revenus reçus − charges payées</div></div>
+      <div class="todo">
+        <div><small>Charges à venir</small><div class="tbig" id="tOut">0 €</div><div class="rsub" id="tOutN"></div></div>
+        <div class="tr"><small>Revenus à venir</small><b id="tIn">0 €</b></div>
+      </div>
       <div class="bar"><i id="progBar" style="width:0"></i></div>
       <div class="prog"><span id="progTxt">0 / 0 pointés</span><span id="realTxt"></span></div>
-      <div style="margin-top:14px">
-        <div class="row2">
-          <div class="mini in"><span>Revenus reçus</span><b id="cIn">0 €</b></div>
-          <div class="mini out"><span>Charges payées</span><b id="cOut">0 €</b></div>
-        </div>
-        <div class="prog"><span>Solde réel pointé</span><b id="cDiff">0 €</b></div>
+      <div style="margin-top:14px" class="row2">
+        <div class="mini in"><span>Revenus reçus</span><b id="cIn">0 €</b></div>
+        <div class="mini out"><span>Charges payées</span><b id="cOut">0 €</b></div>
       </div>
     </div>
-    <div class="panel span">
-      <h3>Répartition des charges</h3>
+    <div class="panel span clickable" id="repPanel" role="button" tabindex="0">
+      <h3><span>Répartition des charges</span><em>Graphique ›</em></h3>
       <div class="stack" id="stack"></div>
       <div class="legend" id="legend"></div>
     </div>
@@ -186,19 +221,7 @@ html{-webkit-text-size-adjust:100%;overscroll-behavior-y:none}
     <div class="g2">
       <label class="f"><span>Montant (€)</span><input name="amount" type="number" step="0.01" min="0" inputmode="decimal" required></label>
       <label class="f"><span>Catégorie</span>
-        <select name="cat">
-          <option value="logement">🏠 Logement</option>
-          <option value="energie">💡 Énergie / Eau</option>
-          <option value="transport">🚗 Transport</option>
-          <option value="assurance">🛡️ Assurance</option>
-          <option value="abonnement">📱 Abonnements</option>
-          <option value="credit">🏦 Crédit</option>
-          <option value="alimentation">🛒 Alimentation</option>
-          <option value="sante">⚕️ Santé</option>
-          <option value="salaire">💼 Salaire</option>
-          <option value="aide">🎁 Aides / Autres revenus</option>
-          <option value="autre">✨ Autre</option>
-        </select>
+        <select name="cat"></select>
       </label>
     </div>
     <div id="recFields">
@@ -228,6 +251,7 @@ html{-webkit-text-size-adjust:100%;overscroll-behavior-y:none}
   <div class="menu">
     <h2 style="margin:0">Sauvegarde</h2>
     <div class="hint">Vos données sont stockées sur cet appareil. Exportez un fichier pour les transférer entre votre PC et votre mobile.</div>
+    <button class="btn" id="btnCats">🏷️ Gérer les catégories</button>
     <button class="btn p" id="btnExport">⬇️ Exporter mes données</button>
     <button class="btn" id="btnImport">⬆️ Importer un fichier</button>
     <input type="file" id="file" accept=".json,application/json" hidden>
@@ -235,11 +259,49 @@ html{-webkit-text-size-adjust:100%;overscroll-behavior-y:none}
   </div>
 </dialog>
 
+<dialog id="dlgCats">
+  <div class="menu">
+    <h2 style="margin:0">Catégories</h2>
+    <div class="catlist" id="catList"></div>
+    <form id="catForm" hidden style="padding:12px;background:var(--bg);border-radius:16px">
+      <div class="g2">
+        <label class="f"><span>Icône (emoji)</span><input name="icon" maxlength="4" required></label>
+        <label class="f"><span>Couleur</span><input name="color" type="color"></label>
+      </div>
+      <label class="f"><span>Nom</span><input name="name" required maxlength="30"></label>
+      <div class="actions">
+        <button type="button" class="btn d" id="catDel">🗑</button>
+        <button type="button" class="btn" id="catCancel">Annuler</button>
+        <button type="submit" class="btn p">OK</button>
+      </div>
+    </form>
+    <button class="btn p" id="catAdd">＋ Nouvelle catégorie</button>
+    <button class="btn" id="catClose">Fermer</button>
+  </div>
+</dialog>
+
+<dialog id="dlgChart">
+  <div class="menu">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <h2 id="chTitle" style="margin:0;font-size:18px;text-transform:capitalize"></h2>
+      <button class="icon-btn x" id="chClose" aria-label="Fermer">✕</button>
+    </div>
+    <div class="seg" id="chKind"><button data-k="out" class="on">💸 Charges</button><button data-k="in">💰 Revenus</button></div>
+    <div class="seg" id="chType">
+      <button data-t="pie">🥧 Camembert</button><button data-t="donut">🍩 Anneau</button><button data-t="bars">📊 Barres</button><button data-t="cols">📶 Colonnes</button><button data-t="list">📋 Liste</button>
+    </div>
+    <div id="chBody"></div>
+  </div>
+</dialog>
+
 <script>
-const CATS={logement:["🏠","#6366f1"],energie:["💡","#f59e0b"],transport:["🚗","#0ea5e9"],assurance:["🛡️","#14b8a6"],abonnement:["📱","#ec4899"],credit:["🏦","#8b5cf6"],alimentation:["🛒","#f97316"],sante:["⚕️","#ef4444"],salaire:["💼","#10b981"],aide:["🎁","#22c55e"],autre:["✨","#94a3b8"]};
+const DEFAULT_CATS=[["logement","🏠","Logement","#6366f1"],["energie","💡","Énergie / Eau","#f59e0b"],["transport","🚗","Transport","#0ea5e9"],["assurance","🛡️","Assurance","#14b8a6"],["abonnement","📱","Abonnements","#ec4899"],["credit","🏦","Crédit","#8b5cf6"],["alimentation","🛒","Alimentation","#f97316"],["sante","⚕️","Santé","#ef4444"],["salaire","💼","Salaire","#10b981"],["aide","🎁","Aides / Autres revenus","#22c55e"],["autre","✨","Autre","#94a3b8"]].map(([id,icon,name,color])=>({id,icon,name,color}));
 const KEY="monbudget.v1";
-let S={rec:[],one:[],chk:{},ovr:{}};
+let S={rec:[],one:[],chk:{},ovr:{},cats:DEFAULT_CATS.map(c=>({...c}))};
 try{const r=localStorage.getItem(KEY);if(r)S=Object.assign(S,JSON.parse(r))}catch(e){}
+if(!Array.isArray(S.cats)||!S.cats.length)S.cats=DEFAULT_CATS.map(c=>({...c}));
+if(!S.cats.some(c=>c.id==="autre"))S.cats.push({...DEFAULT_CATS[10]});
+const getCat=id=>S.cats.find(c=>c.id===id)||S.cats.find(c=>c.id==="autre");
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 
 const $=id=>document.getElementById(id);
@@ -278,25 +340,29 @@ function render(){
   const d=$("diff");d.textContent=(diff>0?"+":"")+eur(diff);d.className="big "+(diff>=0?"pos":"neg");
   const cIn=sum(done,"in"),cOut=sum(done,"out");
   $("cIn").textContent=eur(cIn);$("cOut").textContent=eur(cOut);
-  const cd=$("cDiff");cd.textContent=(cIn-cOut>0?"+":"")+eur(cIn-cOut);cd.className=(cIn-cOut>=0?"pos":"neg");
+  const cd=$("cDiff");cd.textContent=(cIn-cOut>0?"+":"")+eur(cIn-cOut);
+  $("realBox").className="real "+(cIn-cOut>=0?"in":"out");
+  const rest=all.filter(x=>!checked(cur,x.id)),nOut=rest.filter(x=>x.type==="out").length;
+  $("tOut").textContent=eur(sum(rest,"out"));$("tIn").textContent=eur(sum(rest,"in"));
+  $("tOutN").textContent=nOut?nOut+" charge"+(nOut>1?"s":"")+" restante"+(nOut>1?"s":""):(all.some(x=>x.type==="out")?"Toutes les charges sont pointées ✓":"Aucune charge ce mois-ci");
   $("progBar").style.width=(all.length?done.length/all.length*100:0)+"%";
   $("progTxt").textContent=done.length+" / "+all.length+" pointés";
   $("realTxt").textContent=all.length&&done.length===all.length?"🎉 Tout est pointé":"";
 
   // répartition charges
-  const by={};all.filter(x=>x.type==="out").forEach(x=>by[x.cat]=(by[x.cat]||0)+x.amount);
+  const by={};all.filter(x=>x.type==="out").forEach(x=>{const k=getCat(x.cat).id;by[k]=(by[k]||0)+x.amount});
   const keys=Object.keys(by).sort((a,b)=>by[b]-by[a]);
-  $("stack").innerHTML=keys.map(k=>`<i style="width:${by[k]/outT*100}%;background:${CATS[k][1]}" title="${k}"></i>`).join("");
-  $("legend").innerHTML=keys.length?keys.map(k=>`<span style="--c:${CATS[k][1]}">${CATS[k][0]} ${eur(by[k])}</span>`).join(""):"<span style='--c:transparent'>Aucune charge ce mois-ci</span>";
+  $("stack").innerHTML=keys.map(k=>`<i style="width:${by[k]/outT*100}%;background:${getCat(k).color}" title="${esc(getCat(k).name)}"></i>`).join("");
+  $("legend").innerHTML=keys.length?keys.map(k=>`<span style="--c:${getCat(k).color}">${getCat(k).icon} ${eur(by[k])}</span>`).join(""):"<span style='--c:transparent'>Aucune charge ce mois-ci</span>";
 
   let shown=all;
   if(filter==="in"||filter==="out")shown=all.filter(x=>x.type===filter);
   if(filter==="todo")shown=all.filter(x=>!checked(cur,x.id));
   $("list").innerHTML=shown.length?shown.map(x=>{
-    const c=checked(cur,x.id),cat=CATS[x.cat]||CATS.autre;
+    const c=checked(cur,x.id),cat=getCat(x.cat);
     return `<div class="item ${c?"done":""}" data-id="${x.id}" data-kind="${x.kind}">
       <input type="checkbox" class="chk" ${c?"checked":""} aria-label="Pointer">
-      <div class="ico">${cat[0]}</div>
+      <div class="ico">${cat.icon}</div>
       <div class="info"><div class="nm">${esc(x.name)}</div>
         <div class="sub">Le ${x.day}${x.kind==="one"?'<span class="tag">ponctuel</span>':'<span class="tag">fixe</span>'}${x.ovr?`<span class="tag">modifié · habituel ${eur(x.base)}</span>`:""}</div></div>
       <div class="amt ${x.type==="in"?"pos":"neg"}">${x.type==="in"?"+":"−"}${eur(x.amount)}</div>
@@ -329,13 +395,13 @@ function syncKind(){
 f.addEventListener("change",syncKind);
 function openForm(id,kind){
   editing=id?{id,kind}:null;
-  f.reset();
+  f.reset();fillCats();
   $("dlgTitle").textContent=id?"Modifier la ligne":"Nouvelle ligne";
   $("btnDel").hidden=!id;$("ovrField").hidden=true;
   f.date.value=cur+"-"+String(Math.min(now.getDate(),daysIn(cur))).padStart(2,"0");
   if(id){
     const x=(kind==="rec"?S.rec:S.one).find(v=>v.id===id);
-    f.type.value=x.type;f.kind.value=kind;f.name.value=x.name;f.amount.value=x.amount;f.cat.value=x.cat;
+    f.type.value=x.type;f.kind.value=kind;f.name.value=x.name;f.amount.value=x.amount;f.cat.value=getCat(x.cat).id;
     if(kind==="rec"){f.day.value=x.day;f.from.value=x.from||"";f.to.value=x.to||"";
       const ov=S.ovr&&S.ovr[cur]&&S.ovr[cur][id];if(ov!==undefined)f.ovr.value=ov;
       $("ovrLabel").textContent="Montant pour "+monthName(cur)+" seulement (€)";$("ovrField").hidden=false}else f.date.value=x.date;
@@ -382,6 +448,78 @@ $("btnDel").onclick=()=>{
 };
 dlg.addEventListener("close",resetDel);
 
+// ---------- catégories ----------
+function fillCats(v){f.cat.innerHTML=S.cats.map(c=>`<option value="${c.id}">${c.icon} ${esc(c.name)}</option>`).join("");f.cat.value=getCat(v||"autre").id}
+const cdlg=$("dlgCats"),cf=$("catForm");let editCat=null,delTimer2;
+function renderCats(){$("catList").innerHTML=S.cats.map(c=>`<button type="button" class="catrow" data-id="${c.id}"><span class="dot" style="background:${c.color}"></span><span class="ci">${c.icon}</span><span class="cn">${esc(c.name)}</span><span>✏️</span></button>`).join("")}
+function resetCatDel(){clearTimeout(delTimer2);$("catDel").textContent="🗑";$("catDel").dataset.armed=""}
+function openCatForm(id){
+  editCat=id||null;const c=id?S.cats.find(x=>x.id===id):{icon:"🏷️",name:"",color:"#6366f1"};
+  cf.hidden=false;cf.icon.value=c.icon;cf.name.value=c.name;cf.color.value=c.color;
+  $("catDel").hidden=!id||id==="autre";resetCatDel();cf.scrollIntoView({block:"nearest"});cf.name.focus();
+}
+$("btnCats").onclick=()=>{$("dlgMenu").close();cf.hidden=true;renderCats();cdlg.showModal()};
+$("catClose").onclick=()=>cdlg.close();
+$("catList").onclick=e=>{const b=e.target.closest(".catrow");if(b)openCatForm(b.dataset.id)};
+$("catAdd").onclick=()=>openCatForm();
+$("catCancel").onclick=()=>{cf.hidden=true};
+cf.onsubmit=e=>{
+  e.preventDefault();const n=cf.name.value.trim();if(!n)return;
+  const v={name:n,icon:cf.icon.value.trim()||"🏷️",color:cf.color.value};
+  if(editCat)Object.assign(S.cats.find(x=>x.id===editCat),v);else S.cats.push({id:"c"+uid(),...v});
+  save();cf.hidden=true;renderCats();render();toast("Catégorie enregistrée ✓");
+};
+$("catDel").onclick=()=>{
+  const b=$("catDel");if(!editCat||editCat==="autre")return;
+  if(!b.dataset.armed){b.dataset.armed="1";b.textContent="Confirmer ?";delTimer2=setTimeout(resetCatDel,3000);return}
+  resetCatDel();
+  S.cats=S.cats.filter(c=>c.id!==editCat);
+  [...S.rec,...S.one].forEach(x=>{if(x.cat===editCat)x.cat="autre"});
+  save();cf.hidden=true;renderCats();render();toast("Catégorie supprimée (lignes → Autre)");
+};
+
+// ---------- graphiques ----------
+let chKind="out",chType="donut";
+try{chType=localStorage.getItem("monbudget.chart")||chType}catch(e){}
+const cdg=$("dlgChart");
+const open2=()=>{drawChart();cdg.showModal()};
+$("repPanel").onclick=open2;
+$("repPanel").onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();open2()}};
+$("chClose").onclick=()=>cdg.close();
+$("chKind").onclick=e=>{const b=e.target.closest("button");if(b){chKind=b.dataset.k;drawChart()}};
+$("chType").onclick=e=>{const b=e.target.closest("button");if(b){chType=b.dataset.t;try{localStorage.setItem("monbudget.chart",chType)}catch(x){}drawChart()}};
+const P=(a,r)=>[(110+r*Math.sin(a)).toFixed(2),(110-r*Math.cos(a)).toFixed(2)];
+function slice(a0,a1,R,r){
+  if(a1-a0>=2*Math.PI-1e-4)a1=a0+2*Math.PI-1e-4;
+  const L=a1-a0>Math.PI?1:0,[x0,y0]=P(a0,R),[x1,y1]=P(a1,R);
+  if(!r)return `M110 110L${x0} ${y0}A${R} ${R} 0 ${L} 1 ${x1} ${y1}Z`;
+  const [x2,y2]=P(a1,r),[x3,y3]=P(a0,r);
+  return `M${x0} ${y0}A${R} ${R} 0 ${L} 1 ${x1} ${y1}L${x2} ${y2}A${r} ${r} 0 ${L} 0 ${x3} ${y3}Z`;
+}
+function drawChart(){
+  [...$("chKind").children].forEach(b=>b.classList.toggle("on",b.dataset.k===chKind));
+  [...$("chType").children].forEach(b=>b.classList.toggle("on",b.dataset.t===chType));
+  const by={};items(cur).filter(x=>x.type===chKind).forEach(x=>{const k=getCat(x.cat).id;by[k]=(by[k]||0)+x.amount});
+  const rows=Object.keys(by).map(k=>({c:getCat(k),v:by[k]})).sort((a,b)=>b.v-a.v);
+  const tot=rows.reduce((t,r)=>t+r.v,0),max=rows.length?rows[0].v:0;
+  $("chTitle").textContent=(chKind==="out"?"Charges":"Revenus")+" · "+monthName(cur);
+  if(!tot){$("chBody").innerHTML='<div class="empty">Rien à afficher pour ce mois.</div>';return}
+  const pct=v=>Math.round(v/tot*100)+" %";
+  const legend=rows.map(r=>`<div class="lg"><span class="dot" style="background:${r.c.color}"></span><span class="n">${r.c.icon} ${esc(r.c.name)}</span><span class="p">${pct(r.v)}</span><b>${eur(r.v)}</b></div>`).join("")+`<div class="lg" style="border:0"><span class="n"><b>Total</b></span><b>${eur(tot)}</b></div>`;
+  let h="";
+  if(chType==="pie"||chType==="donut"){
+    let a=0;const don=chType==="donut";
+    const paths=rows.map(r=>{const a1=a+r.v/tot*2*Math.PI;const p=`<path d="${slice(a,a1,100,don?60:0)}" fill="${r.c.color}" stroke="var(--card)" stroke-width="2"><title>${esc(r.c.name)} : ${eur(r.v)}</title></path>`;a=a1;return p}).join("");
+    const mid=don?`<text x="110" y="106" text-anchor="middle" font-size="12" style="fill:var(--muted)">Total</text><text x="110" y="126" text-anchor="middle" font-size="16" font-weight="800" style="fill:var(--ink)">${eur(tot)}</text>`:"";
+    h=`<svg viewBox="0 0 220 220" style="width:100%;max-width:260px;display:block;margin:6px auto">${paths}${mid}</svg>${legend}`;
+  }else if(chType==="bars"){
+    h=rows.map(r=>`<div class="hb"><div class="t"><span>${r.c.icon} ${esc(r.c.name)}</span><span><b>${eur(r.v)}</b> <span class="sub">${pct(r.v)}</span></span></div><div class="tr2"><i style="width:${r.v/max*100}%;background:${r.c.color}"></i></div></div>`).join("")+`<div class="lg" style="border:0"><span class="n"><b>Total</b></span><b>${eur(tot)}</b></div>`;
+  }else if(chType==="cols"){
+    h=`<div class="cols">${rows.map(r=>`<div class="col"><span>${Math.round(r.v)} €</span><i style="height:${r.v/max*70}%;background:${r.c.color}"></i><span class="ic">${r.c.icon}</span></div>`).join("")}</div>`+legend;
+  }else h=legend;
+  $("chBody").innerHTML=h;
+}
+
 // thème
 function applyTheme(t){if(t)document.documentElement.dataset.theme=t}
 try{applyTheme(localStorage.getItem("monbudget.theme"))}catch(e){}
@@ -406,7 +544,7 @@ $("file").onchange=async e=>{
     const d=JSON.parse(await file.text());
     if(!Array.isArray(d.rec)||!Array.isArray(d.one))throw 0;
     if(!confirm("Remplacer les données actuelles par ce fichier ?"))return;
-    S={rec:d.rec,one:d.one,chk:d.chk||{},ovr:d.ovr||{}};save();render();$("dlgMenu").close();toast("Import réussi ✓");
+    S={rec:d.rec,one:d.one,chk:d.chk||{},ovr:d.ovr||{},cats:Array.isArray(d.cats)&&d.cats.length?d.cats:DEFAULT_CATS.map(c=>({...c}))};if(!S.cats.some(c=>c.id==="autre"))S.cats.push({...DEFAULT_CATS[10]});save();render();$("dlgMenu").close();toast("Import réussi ✓");
   }catch(err){alert("Fichier invalide.")}
   e.target.value="";
 };
