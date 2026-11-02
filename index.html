@@ -599,7 +599,7 @@ const shareFile=()=>{
   return null;
 };
 let canShare=!!shareFile();
-$("btnShare").hidden=!canShare;
+$("btnShare").hidden=!(canShare&&!canPick); // sur PC, la fenêtre « Enregistrer sous » suffit
 const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
 $("bkHint").textContent=isIOS&&canShare
   ?"Sur iPhone : touchez « Partager », puis « Enregistrer dans Fichiers » et choisissez iCloud Drive. Pour importer, choisissez le fichier dans iCloud Drive."
@@ -621,7 +621,7 @@ $("btnShare").onclick=async()=>{
   const f=shareFile();
   if(!f){toast("Partage non disponible sur cet appareil");return}
   try{await navigator.share({files:[f],title:"Sauvegarde Mon Budget"})}
-  catch(e){if(!aborted(e))toast("Partage impossible : "+(e.name||e))}
+  catch(e){if(!aborted(e)){download();toast("Partage impossible : fichier téléchargé")}}
 };
 let pending=null;
 function askImport(text){
