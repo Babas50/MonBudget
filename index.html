@@ -180,7 +180,7 @@ html{-webkit-text-size-adjust:100%;overscroll-behavior-y:none}
 <main class="wrap">
   <section class="cards">
     <div class="balance">
-      <small>Reste à vivre du mois (revenus − charges)</small>
+      <small id="diffLbl">Reste à vivre du mois (revenus − charges)</small>
       <div class="big" id="diff">0 €</div>
       <div class="row2">
         <div class="mini in"><span>Revenus</span><b id="sumIn">0 €</b></div>
@@ -226,6 +226,7 @@ html{-webkit-text-size-adjust:100%;overscroll-behavior-y:none}
     <div class="seg" id="segType">
       <label><input type="radio" name="type" value="out" checked><span>💸 Charge</span></label>
       <label><input type="radio" name="type" value="in"><span>💰 Revenu</span></label>
+      <label><input type="radio" name="type" value="adj"><span>⚖️ Ajust.</span></label>
     </div>
     <div class="seg" id="segKind">
       <label><input type="radio" name="kind" value="rec" checked><span>🔁 Fixe (chaque mois)</span></label>
@@ -233,8 +234,8 @@ html{-webkit-text-size-adjust:100%;overscroll-behavior-y:none}
     </div>
     <label class="f"><span>Libellé</span><input name="name" required maxlength="60" placeholder="ex : Loyer, Salaire…"></label>
     <div class="g2">
-      <label class="f"><span>Montant (€)</span><input name="amount" type="number" step="0.01" min="0" inputmode="decimal" required></label>
-      <label class="f"><span>Catégorie</span>
+      <label class="f"><span id="amtLabel">Montant (€)</span><input name="amount" type="number" step="0.01" min="0" inputmode="decimal" required></label>
+      <label class="f" id="catField"><span>Catégorie</span>
         <select name="cat"></select>
       </label>
     </div>
@@ -252,6 +253,7 @@ html{-webkit-text-size-adjust:100%;overscroll-behavior-y:none}
     </div>
     <div id="oneFields" hidden>
       <label class="f"><span>Date</span><input name="date" type="date"></label>
+      <div class="hint" id="adjHint" style="margin-top:6px" hidden>Ajuste le solde (+ ou −) sans compter comme revenu ni comme charge courante. Absent du graphique.</div>
     </div>
     <div class="actions">
       <button type="button" class="btn d" id="btnDel" hidden>🗑</button>
@@ -313,9 +315,6 @@ html{-webkit-text-size-adjust:100%;overscroll-behavior-y:none}
       <button class="icon-btn x" id="chClose" aria-label="Fermer">✕</button>
     </div>
     <div class="seg" id="chKind"><button data-k="out" class="on">💸 Charges</button><button data-k="in">💰 Revenus</button></div>
-    <div class="seg" id="chType">
-      <button data-t="pie">🥧 Camembert</button><button data-t="donut">🍩 Anneau</button><button data-t="bars">📊 Barres</button><button data-t="cols">📶 Colonnes</button><button data-t="list">📋 Liste</button>
-    </div>
     <div id="chBody"></div>
   </div>
 </dialog>
@@ -361,15 +360,16 @@ function render(){
   const all=items(cur);
   const sum=(arr,t)=>arr.filter(x=>x.type===t).reduce((s,x)=>s+x.amount,0);
   const done=all.filter(x=>checked(cur,x.id));
-  const inT=sum(all,"in"),outT=sum(all,"out"),diff=inT-outT;
+  const inT=sum(all,"in"),outT=sum(all,"out"),adjT=sum(all,"adj"),diff=inT-outT+adjT;
   $("sumIn").textContent=eur(inT);$("sumOut").textContent=eur(outT);
   const d=$("diff");d.textContent=(diff>0?"+":"")+eur(diff);d.className="big "+(diff>=0?"pos":"neg");
-  const cIn=sum(done,"in"),cOut=sum(done,"out");
+  const cIn=sum(done,"in"),cOut=sum(done,"out"),cReal=cIn-cOut+sum(done,"adj");
   $("cIn").textContent=eur(cIn);$("cOut").textContent=eur(cOut);
-  const cd=$("cDiff");cd.textContent=(cIn-cOut>0?"+":"")+eur(cIn-cOut);
-  $("realBox").className="real "+(cIn-cOut>=0?"in":"out");
+  const cd=$("cDiff");cd.textContent=(cReal>0?"+":"")+eur(cReal);
+  $("realBox").className="real "+(cReal>=0?"in":"out");
   const rest=all.filter(x=>!checked(cur,x.id)),nOut=rest.filter(x=>x.type==="out").length;
   $("tOut").textContent=eur(sum(rest,"out"));$("tIn").textContent=eur(sum(rest,"in"));
+  $("diffLbl").textContent=all.some(x=>x.type==="adj")?"Reste à vivre du mois (revenus − charges ± ajustement)":"Reste à vivre du mois (revenus − charges)";
   $("tOutN").textContent=nOut?nOut+" charge"+(nOut>1?"s":"")+" restante"+(nOut>1?"s":""):(all.some(x=>x.type==="out")?"Toutes les charges sont pointées ✓":"Aucune charge ce mois-ci");
   $("progBar").style.width=(all.length?done.length/all.length*100:0)+"%";
   $("progTxt").textContent=done.length+" / "+all.length+" pointés";
@@ -385,13 +385,14 @@ function render(){
   if(filter==="in"||filter==="out")shown=all.filter(x=>x.type===filter);
   if(filter==="todo")shown=all.filter(x=>!checked(cur,x.id));
   $("list").innerHTML=shown.length?shown.map(x=>{
-    const c=checked(cur,x.id),cat=getCat(x.cat);
+    const c=checked(cur,x.id),adj=x.type==="adj",cat=getCat(x.cat);
+    const plus=adj?x.amount>=0:x.type==="in";
     return `<div class="item ${c?"done":""}" data-id="${x.id}" data-kind="${x.kind}">
       <input type="checkbox" class="chk" ${c?"checked":""} aria-label="Pointer">
-      <div class="ico">${cat.icon}</div>
+      <div class="ico">${adj?"⚖️":cat.icon}</div>
       <div class="info"><div class="nm">${esc(x.name)}</div>
-        <div class="sub">Le ${x.day}${x.kind==="one"?'<span class="tag">ponctuel</span>':'<span class="tag">fixe</span>'}${x.ovr?`<span class="tag">modifié · habituel ${eur(x.base)}</span>`:""}</div></div>
-      <div class="amt ${x.type==="in"?"pos":"neg"}">${x.type==="in"?"+":"−"}${eur(x.amount)}</div>
+        <div class="sub">Le ${x.day}${adj?'<span class="tag">ajustement</span>':x.kind==="one"?'<span class="tag">ponctuel</span>':'<span class="tag">fixe</span>'}${x.ovr?`<span class="tag">modifié · habituel ${eur(x.base)}</span>`:""}</div></div>
+      <div class="amt ${plus?"pos":"neg"}">${plus?"+":"−"}${eur(Math.abs(x.amount))}</div>
     </div>`}).join(""):`<div class="empty">Rien à afficher.<br>Appuyez sur <b>+</b> pour ajouter une ligne.</div>`;
 }
 const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -414,9 +415,12 @@ $("list").onclick=e=>{
 const dlg=$("dlg"),f=$("form");
 let editing=null;
 function syncKind(){
-  const one=f.kind.value==="one";
+  const adj=f.type.value==="adj",one=adj||f.kind.value==="one";
   $("recFields").hidden=one;$("oneFields").hidden=!one;
   f.date.required=one;
+  $("segKind").hidden=adj;$("catField").hidden=adj;$("adjHint").hidden=!adj;
+  f.amount.min=adj?"":"0";
+  $("amtLabel").textContent=adj?"Montant (€, négatif possible)":"Montant (€)";
 }
 f.addEventListener("change",syncKind);
 function openForm(id,kind){
@@ -439,8 +443,9 @@ $("fab").onclick=()=>openForm();
 $("btnCancel").onclick=()=>dlg.close();
 f.onsubmit=e=>{
   e.preventDefault();
-  const base={id:editing?editing.id:uid(),type:f.type.value,name:f.name.value.trim(),amount:Math.abs(parseFloat(f.amount.value)||0),cat:f.cat.value};
-  const kind=editing?editing.kind:f.kind.value;
+  const adj=f.type.value==="adj",val=parseFloat(f.amount.value)||0;
+  const base={id:editing?editing.id:uid(),type:f.type.value,name:f.name.value.trim(),amount:adj?val:Math.abs(val),cat:adj?"autre":f.cat.value};
+  const kind=editing?editing.kind:(adj?"one":f.kind.value);
   if(kind==="rec"){
     const r={...base,day:Math.min(31,Math.max(1,+f.day.value||1)),from:f.from.value,to:f.to.value};
     editing?S.rec[S.rec.findIndex(v=>v.id===r.id)]=r:S.rec.push(r);
@@ -526,15 +531,13 @@ $("emGrid").onclick=e=>{const b=e.target.closest("button");if(!b)return;cf.icon.
 cf.icon.addEventListener("input",()=>{$("emBtn").textContent=cf.icon.value||"🏷️"});
 
 // ---------- graphiques ----------
-let chKind="out",chType="donut";
-try{chType=localStorage.getItem("monbudget.chart")||chType}catch(e){}
+let chKind="out";
 const cdg=$("dlgChart");
 const open2=()=>{drawChart();cdg.showModal()};
 $("repPanel").onclick=open2;
 $("repPanel").onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();open2()}};
 $("chClose").onclick=()=>cdg.close();
 $("chKind").onclick=e=>{const b=e.target.closest("button");if(b){chKind=b.dataset.k;drawChart()}};
-$("chType").onclick=e=>{const b=e.target.closest("button");if(b){chType=b.dataset.t;try{localStorage.setItem("monbudget.chart",chType)}catch(x){}drawChart()}};
 const P=(a,r)=>[(110+r*Math.sin(a)).toFixed(2),(110-r*Math.cos(a)).toFixed(2)];
 function slice(a0,a1,R,r){
   if(a1-a0>=2*Math.PI-1e-4)a1=a0+2*Math.PI-1e-4;
@@ -545,7 +548,6 @@ function slice(a0,a1,R,r){
 }
 function drawChart(){
   [...$("chKind").children].forEach(b=>b.classList.toggle("on",b.dataset.k===chKind));
-  [...$("chType").children].forEach(b=>b.classList.toggle("on",b.dataset.t===chType));
   const by={};items(cur).filter(x=>x.type===chKind).forEach(x=>{const k=getCat(x.cat).id;by[k]=(by[k]||0)+x.amount});
   const rows=Object.keys(by).map(k=>({c:getCat(k),v:by[k]})).sort((a,b)=>b.v-a.v);
   const tot=rows.reduce((t,r)=>t+r.v,0),max=rows.length?rows[0].v:0;
@@ -553,18 +555,10 @@ function drawChart(){
   if(!tot){$("chBody").innerHTML='<div class="empty">Rien à afficher pour ce mois.</div>';return}
   const pct=v=>Math.round(v/tot*100)+" %";
   const legend=rows.map(r=>`<div class="lg"><span class="dot" style="background:${r.c.color}"></span><span class="n">${r.c.icon} ${esc(r.c.name)}</span><span class="p">${pct(r.v)}</span><b>${eur(r.v)}</b></div>`).join("")+`<div class="lg" style="border:0"><span class="n"><b>Total</b></span><b>${eur(tot)}</b></div>`;
-  let h="";
-  if(chType==="pie"||chType==="donut"){
-    let a=0;const don=chType==="donut";
-    const paths=rows.map(r=>{const a1=a+r.v/tot*2*Math.PI;const p=`<path d="${slice(a,a1,100,don?60:0)}" fill="${r.c.color}" stroke="var(--card)" stroke-width="2"><title>${esc(r.c.name)} : ${eur(r.v)}</title></path>`;a=a1;return p}).join("");
-    const mid=don?`<text x="110" y="106" text-anchor="middle" font-size="12" style="fill:var(--muted)">Total</text><text x="110" y="126" text-anchor="middle" font-size="16" font-weight="800" style="fill:var(--ink)">${eur(tot)}</text>`:"";
-    h=`<svg viewBox="0 0 220 220" style="width:100%;max-width:260px;display:block;margin:6px auto">${paths}${mid}</svg>${legend}`;
-  }else if(chType==="bars"){
-    h=rows.map(r=>`<div class="hb"><div class="t"><span>${r.c.icon} ${esc(r.c.name)}</span><span><b>${eur(r.v)}</b> <span class="sub">${pct(r.v)}</span></span></div><div class="tr2"><i style="width:${r.v/max*100}%;background:${r.c.color}"></i></div></div>`).join("")+`<div class="lg" style="border:0"><span class="n"><b>Total</b></span><b>${eur(tot)}</b></div>`;
-  }else if(chType==="cols"){
-    h=`<div class="cols">${rows.map(r=>`<div class="col"><span>${Math.round(r.v)} €</span><i style="height:${r.v/max*70}%;background:${r.c.color}"></i><span class="ic">${r.c.icon}</span></div>`).join("")}</div>`+legend;
-  }else h=legend;
-  $("chBody").innerHTML=h;
+  let a=0;
+  const paths=rows.map(r=>{const a1=a+r.v/tot*2*Math.PI;const p=`<path d="${slice(a,a1,100,60)}" fill="${r.c.color}" stroke="var(--card)" stroke-width="2"><title>${esc(r.c.name)} : ${eur(r.v)}</title></path>`;a=a1;return p}).join("");
+  const mid=`<text x="110" y="106" text-anchor="middle" font-size="12" style="fill:var(--muted)">Total</text><text x="110" y="126" text-anchor="middle" font-size="16" font-weight="800" style="fill:var(--ink)">${eur(tot)}</text>`;
+  $("chBody").innerHTML=`<svg viewBox="0 0 220 220" style="width:100%;max-width:260px;display:block;margin:6px auto">${paths}${mid}</svg>${legend}`;
 }
 
 // Safari iOS ne gère pas <input type="month"> : saisie texte AAAA-MM
